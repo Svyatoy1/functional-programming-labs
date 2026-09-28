@@ -82,3 +82,11 @@ CREATE TABLE competition_participants (
 USE faculty_sport;
 
 SHOW TABLES;
+
+USE faculty_sport;
+
+INSERT INTO students (first_name, last_name, group_name, course, phone)
+VALUES
+('Андрій', 'Коваленко', 'К-21', 2, '+380931111111'),
+('Олена', 'Шевченко', 'К-22', 2, '+380932222222'),
+('Максим', 'Бондар', 'К-11', 1, '+380933333333');

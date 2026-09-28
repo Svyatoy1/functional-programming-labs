@@ -1,38 +1,24 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Main (main) where
 
-import Database.MySQL.Base
-import qualified System.IO.Streams as Streams
-import Configuration.Dotenv
-import System.Environment
-import qualified Data.ByteString.Char8 as BS
+import Database.MySQL.Base (close)
+import System.IO
+import GHC.IO.Encoding (setLocaleEncoding)
+
+import Database
+import Models
 
 main :: IO ()
 main = do
-    loadFile defaultConfig
+    setLocaleEncoding utf8
+    hSetEncoding stdout utf8
+    hSetEncoding stderr utf8
 
-    host <- getEnv "DB_HOST"
-    port <- getEnv "DB_PORT"
-    user <- getEnv "DB_USER"
-    password <- getEnv "DB_PASSWORD"
-    database <- getEnv "DB_NAME"
-
-    conn <- connect defaultConnectInfo
-        { ciHost = host
-        , ciPort = read port
-        , ciUser = BS.pack user
-        , ciPassword = BS.pack password
-        , ciDatabase = BS.pack database
-        }
+    conn <- createConnection
 
     putStrLn "Connected to MySQL successfully!"
 
-    (_, is) <- query_ conn
-        "SELECT id, first_name, last_name FROM students"
+    students <- getStudents conn
 
-    rows <- Streams.toList is
-
-    print rows
+    mapM_ (putStrLn . display) students
 
     close conn
