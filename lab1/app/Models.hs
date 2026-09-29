@@ -42,6 +42,21 @@ data SectionSchedule = SectionSchedule
     , scheduleLocation :: Maybe String
     } deriving (Show)
 
+data SectionMember = SectionMember
+    { membershipId :: Int
+    , memberStudentId :: Int
+    , memberSectionId :: Int
+    , memberJoinDate :: Maybe String
+    } deriving (Show)
+
+data CompetitionParticipant = CompetitionParticipant
+    { participantId :: Int
+    , participantCompetitionId :: Int
+    , participantStudentId :: Int
+    , participantSectionId :: Maybe Int
+    , participantResult :: Maybe String
+    } deriving (Show)
+
 class Displayable a where
     display :: a -> String
 
@@ -96,3 +111,18 @@ instance Displayable SectionSchedule where
         ++ " - " ++ scheduleEndTime s
         ++ ", location: "
         ++ maybe "-" id (scheduleLocation s)
+
+instance Displayable SectionMember where
+    display m =
+        "Membership #" ++ show (membershipId m)
+        ++ ": student #" ++ show (memberStudentId m)
+        ++ ", section #" ++ show (memberSectionId m)
+        ++ ", joined: " ++ maybe "-" id (memberJoinDate m)
+
+instance Displayable CompetitionParticipant where
+    display p =
+        "Participant #" ++ show (participantId p)
+        ++ ": competition #" ++ show (participantCompetitionId p)
+        ++ ", student #" ++ show (participantStudentId p)
+        ++ ", section #" ++ maybe "-" show (participantSectionId p)
+        ++ ", result: " ++ maybe "-" id (participantResult p)

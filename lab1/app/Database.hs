@@ -2,26 +2,48 @@
 
 module Database
     ( createConnection
+
     , getStudents
     , getStudentById
     , addStudent
     , updateStudent
     , deleteStudent
+
     , getTeachers
     , getTeacherById
     , addTeacher
     , updateTeacher
     , deleteTeacher
+
     , getSportSections
     , getSportSectionById
     , addSportSection
     , updateSportSection
     , deleteSportSection
+
     , getSchedules
     , getScheduleById
     , addSchedule
     , updateSchedule
     , deleteSchedule
+
+    , getCompetitions
+    , getCompetitionById
+    , addCompetition
+    , updateCompetition
+    , deleteCompetition
+
+    , getSectionMembers
+    , getSectionMemberById
+    , addSectionMember
+    , updateSectionMember
+    , deleteSectionMember
+
+    , getCompetitionParticipants
+    , getCompetitionParticipantById
+    , addCompetitionParticipant
+    , updateCompetitionParticipant
+    , deleteCompetitionParticipant
     ) where
 
 import Database.MySQL.Base
@@ -401,3 +423,271 @@ deleteSchedule conn scheduleIdValue = do
         [MySQLInt32 (fromIntegral scheduleIdValue)]
 
     putStrLn "Schedule deleted successfully."
+
+
+getCompetitions :: MySQLConn -> IO [Competition]
+getCompetitions conn = do
+    (_, stream) <- query_ conn
+        "SELECT id, name, CAST(competition_date AS CHAR), location, description FROM competitions"
+
+    rows <- Streams.toList stream
+    return (map rowToCompetition rows)
+
+
+getCompetitionById :: MySQLConn -> Int -> IO (Maybe Competition)
+getCompetitionById conn competitionIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, name, CAST(competition_date AS CHAR), location, description FROM competitions WHERE id = ?"
+        [MySQLInt32 (fromIntegral competitionIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToCompetition row))
+        _     -> return Nothing
+
+
+rowToCompetition :: [MySQLValue] -> Competition
+rowToCompetition
+    [ MySQLInt32 idValue
+    , MySQLText name
+    , MySQLText date
+    , locationValue
+    , descriptionValue
+    ] =
+        Competition
+            { competitionId = fromIntegral idValue
+            , competitionName = T.unpack name
+            , competitionDate = T.unpack date
+            , competitionLocation =
+                maybe "" id (convertNullableText locationValue)
+            , competitionDescription =
+                convertNullableText descriptionValue
+            }
+
+rowToCompetition _ =
+    error "Unexpected competition row format"
+
+
+addCompetition :: MySQLConn -> Competition -> IO ()
+addCompetition conn competition = do
+    _ <- execute conn
+        "INSERT INTO competitions (name, competition_date, location, description) VALUES (?, ?, ?, ?)"
+        [ MySQLText (T.pack (competitionName competition))
+        , MySQLText (T.pack (competitionDate competition))
+        , MySQLText (T.pack (competitionLocation competition))
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (competitionDescription competition)
+        ]
+
+    putStrLn "Competition added successfully."
+
+
+updateCompetition :: MySQLConn -> Competition -> IO ()
+updateCompetition conn competition = do
+    _ <- execute conn
+        "UPDATE competitions SET name = ?, competition_date = ?, location = ?, description = ? WHERE id = ?"
+        [ MySQLText (T.pack (competitionName competition))
+        , MySQLText (T.pack (competitionDate competition))
+        , MySQLText (T.pack (competitionLocation competition))
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (competitionDescription competition)
+        , MySQLInt32 (fromIntegral (competitionId competition))
+        ]
+
+    putStrLn "Competition updated successfully."
+
+
+deleteCompetition :: MySQLConn -> Int -> IO ()
+deleteCompetition conn competitionIdValue = do
+    _ <- execute conn
+        "DELETE FROM competitions WHERE id = ?"
+        [MySQLInt32 (fromIntegral competitionIdValue)]
+
+    putStrLn "Competition deleted successfully."
+
+
+getSectionMembers :: MySQLConn -> IO [SectionMember]
+getSectionMembers conn = do
+    (_, stream) <- query_ conn
+        "SELECT id, student_id, section_id, CAST(join_date AS CHAR) FROM section_members"
+
+    rows <- Streams.toList stream
+    return (map rowToSectionMember rows)
+
+
+getSectionMemberById :: MySQLConn -> Int -> IO (Maybe SectionMember)
+getSectionMemberById conn membershipIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, student_id, section_id, CAST(join_date AS CHAR) FROM section_members WHERE id = ?"
+        [MySQLInt32 (fromIntegral membershipIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToSectionMember row))
+        _     -> return Nothing
+
+
+rowToSectionMember :: [MySQLValue] -> SectionMember
+rowToSectionMember
+    [ MySQLInt32 idValue
+    , MySQLInt32 studentIdValue
+    , MySQLInt32 sectionIdValue
+    , joinDateValue
+    ] =
+        SectionMember
+            { membershipId = fromIntegral idValue
+            , memberStudentId = fromIntegral studentIdValue
+            , memberSectionId = fromIntegral sectionIdValue
+            , memberJoinDate = convertNullableText joinDateValue
+            }
+
+rowToSectionMember _ =
+    error "Unexpected section member row format"
+
+
+addSectionMember :: MySQLConn -> SectionMember -> IO ()
+addSectionMember conn member = do
+    _ <- execute conn
+        "INSERT INTO section_members (student_id, section_id, join_date) VALUES (?, ?, ?)"
+        [ MySQLInt32 (fromIntegral (memberStudentId member))
+        , MySQLInt32 (fromIntegral (memberSectionId member))
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (memberJoinDate member)
+        ]
+
+    putStrLn "Section member added successfully."
+
+
+updateSectionMember :: MySQLConn -> SectionMember -> IO ()
+updateSectionMember conn member = do
+    _ <- execute conn
+        "UPDATE section_members SET student_id = ?, section_id = ?, join_date = ? WHERE id = ?"
+        [ MySQLInt32 (fromIntegral (memberStudentId member))
+        , MySQLInt32 (fromIntegral (memberSectionId member))
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (memberJoinDate member)
+        , MySQLInt32 (fromIntegral (membershipId member))
+        ]
+
+    putStrLn "Section member updated successfully."
+
+
+deleteSectionMember :: MySQLConn -> Int -> IO ()
+deleteSectionMember conn membershipIdValue = do
+    _ <- execute conn
+        "DELETE FROM section_members WHERE id = ?"
+        [MySQLInt32 (fromIntegral membershipIdValue)]
+
+    putStrLn "Section member deleted successfully."
+
+getCompetitionParticipants :: MySQLConn -> IO [CompetitionParticipant]
+getCompetitionParticipants conn = do
+    (_, stream) <- query_ conn
+        "SELECT id, competition_id, student_id, section_id, result FROM competition_participants"
+
+    rows <- Streams.toList stream
+    return (map rowToCompetitionParticipant rows)
+
+
+getCompetitionParticipantById
+    :: MySQLConn
+    -> Int
+    -> IO (Maybe CompetitionParticipant)
+
+getCompetitionParticipantById conn participantIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, competition_id, student_id, section_id, result FROM competition_participants WHERE id = ?"
+        [MySQLInt32 (fromIntegral participantIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToCompetitionParticipant row))
+        _     -> return Nothing
+
+
+rowToCompetitionParticipant :: [MySQLValue] -> CompetitionParticipant
+rowToCompetitionParticipant
+    [ MySQLInt32 idValue
+    , MySQLInt32 competitionIdValue
+    , MySQLInt32 studentIdValue
+    , sectionIdValue
+    , resultValue
+    ] =
+        CompetitionParticipant
+            { participantId = fromIntegral idValue
+            , participantCompetitionId =
+                fromIntegral competitionIdValue
+            , participantStudentId =
+                fromIntegral studentIdValue
+            , participantSectionId =
+                convertNullableInt sectionIdValue
+            , participantResult =
+                convertNullableText resultValue
+            }
+
+rowToCompetitionParticipant _ =
+    error "Unexpected competition participant row format"
+
+
+addCompetitionParticipant
+    :: MySQLConn
+    -> CompetitionParticipant
+    -> IO ()
+
+addCompetitionParticipant conn participant = do
+    _ <- execute conn
+        "INSERT INTO competition_participants (competition_id, student_id, section_id, result) VALUES (?, ?, ?, ?)"
+        [ MySQLInt32
+            (fromIntegral (participantCompetitionId participant))
+        , MySQLInt32
+            (fromIntegral (participantStudentId participant))
+        , maybe MySQLNull
+            (MySQLInt32 . fromIntegral)
+            (participantSectionId participant)
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (participantResult participant)
+        ]
+
+    putStrLn "Competition participant added successfully."
+
+
+updateCompetitionParticipant
+    :: MySQLConn
+    -> CompetitionParticipant
+    -> IO ()
+
+updateCompetitionParticipant conn participant = do
+    _ <- execute conn
+        "UPDATE competition_participants SET competition_id = ?, student_id = ?, section_id = ?, result = ? WHERE id = ?"
+        [ MySQLInt32
+            (fromIntegral (participantCompetitionId participant))
+        , MySQLInt32
+            (fromIntegral (participantStudentId participant))
+        , maybe MySQLNull
+            (MySQLInt32 . fromIntegral)
+            (participantSectionId participant)
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (participantResult participant)
+        , MySQLInt32
+            (fromIntegral (participantId participant))
+        ]
+
+    putStrLn "Competition participant updated successfully."
+
+
+deleteCompetitionParticipant :: MySQLConn -> Int -> IO ()
+deleteCompetitionParticipant conn participantIdValue = do
+    _ <- execute conn
+        "DELETE FROM competition_participants WHERE id = ?"
+        [MySQLInt32 (fromIntegral participantIdValue)]
+
+    putStrLn "Competition participant deleted successfully."

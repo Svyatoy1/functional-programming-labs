@@ -41,6 +41,9 @@ menu conn = do
     putStrLn "2. Teachers"
     putStrLn "3. Sport sections"
     putStrLn "4. Section schedule"
+    putStrLn "5. Competitions"
+    putStrLn "6. Section members"
+    putStrLn "7. Competition participants"
     putStrLn "0. Exit"
 
     choice <- prompt "Choose option: "
@@ -50,6 +53,9 @@ menu conn = do
         "2" -> teachersMenu conn
         "3" -> sectionsMenu conn
         "4" -> scheduleMenu conn
+        "5" -> competitionsMenu conn
+        "6" -> sectionMembersMenu conn
+        "7" -> competitionParticipantsMenu conn
         "0" -> putStrLn "Goodbye!"
         _ -> do
             putStrLn "Invalid option."
@@ -545,4 +551,336 @@ editSchedule oldSchedule = do
             if null location
                 then scheduleLocation oldSchedule
                 else Just location
+        }
+
+
+competitionsMenu :: MySQLConn -> IO ()
+competitionsMenu conn = do
+    putStrLn ""
+    putStrLn "===== COMPETITIONS ====="
+    putStrLn "1. Show competitions"
+    putStrLn "2. Add competition"
+    putStrLn "3. Update competition"
+    putStrLn "4. Delete competition"
+    putStrLn "0. Back"
+
+    choice <- prompt "Choose option: "
+
+    case choice of
+        "1" -> do
+            competitions <- getCompetitions conn
+            mapM_ (putStrLn . display) competitions
+            competitionsMenu conn
+
+        "2" -> do
+            competition <- readCompetition 0
+            addCompetition conn competition
+            competitionsMenu conn
+
+        "3" -> do
+            idText <- prompt "Competition ID: "
+            maybeCompetition <-
+                getCompetitionById conn (read idText)
+
+            case maybeCompetition of
+                Nothing ->
+                    putStrLn "Competition not found."
+
+                Just oldCompetition -> do
+                    competition <- editCompetition oldCompetition
+                    updateCompetition conn competition
+
+            competitionsMenu conn
+
+        "4" -> do
+            idText <- prompt "Competition ID: "
+            deleteCompetition conn (read idText)
+            competitionsMenu conn
+
+        "0" ->
+            menu conn
+
+        _ ->
+            competitionsMenu conn
+
+
+readCompetition :: Int -> IO Competition
+readCompetition competitionIdValue = do
+    name <- prompt "Name: "
+    date <- prompt "Date (YYYY-MM-DD): "
+    location <- prompt "Location: "
+    description <- prompt "Description: "
+
+    return Competition
+        { competitionId = competitionIdValue
+        , competitionName = name
+        , competitionDate = date
+        , competitionLocation = location
+        , competitionDescription =
+            if null description
+                then Nothing
+                else Just description
+        }
+
+
+editCompetition :: Competition -> IO Competition
+editCompetition oldCompetition = do
+    putStrLn "Press Enter to keep the current value."
+
+    name <- prompt $
+        "Name [" ++ competitionName oldCompetition ++ "]: "
+
+    date <- prompt $
+        "Date [" ++ competitionDate oldCompetition ++ "]: "
+
+    location <- prompt $
+        "Location [" ++ competitionLocation oldCompetition ++ "]: "
+
+    description <- prompt $
+        "Description ["
+        ++ maybe "" id (competitionDescription oldCompetition)
+        ++ "]: "
+
+    return Competition
+        { competitionId = competitionId oldCompetition
+        , competitionName =
+            if null name
+                then competitionName oldCompetition
+                else name
+        , competitionDate =
+            if null date
+                then competitionDate oldCompetition
+                else date
+        , competitionLocation =
+            if null location
+                then competitionLocation oldCompetition
+                else location
+        , competitionDescription =
+            if null description
+                then competitionDescription oldCompetition
+                else Just description
+        }
+
+
+sectionMembersMenu :: MySQLConn -> IO ()
+sectionMembersMenu conn = do
+    putStrLn ""
+    putStrLn "===== SECTION MEMBERS ====="
+    putStrLn "1. Show members"
+    putStrLn "2. Add member"
+    putStrLn "3. Update member"
+    putStrLn "4. Delete member"
+    putStrLn "0. Back"
+
+    choice <- prompt "Choose option: "
+
+    case choice of
+        "1" -> do
+            members <- getSectionMembers conn
+            mapM_ (putStrLn . display) members
+            sectionMembersMenu conn
+
+        "2" -> do
+            member <- readSectionMember 0
+            addSectionMember conn member
+            sectionMembersMenu conn
+
+        "3" -> do
+            idText <- prompt "Membership ID: "
+            maybeMember <-
+                getSectionMemberById conn (read idText)
+
+            case maybeMember of
+                Nothing ->
+                    putStrLn "Membership not found."
+
+                Just oldMember -> do
+                    member <- editSectionMember oldMember
+                    updateSectionMember conn member
+
+            sectionMembersMenu conn
+
+        "4" -> do
+            idText <- prompt "Membership ID: "
+            deleteSectionMember conn (read idText)
+            sectionMembersMenu conn
+
+        "0" ->
+            menu conn
+
+        _ ->
+            sectionMembersMenu conn
+
+
+readSectionMember :: Int -> IO SectionMember
+readSectionMember membershipIdValue = do
+    studentText <- prompt "Student ID: "
+    sectionText <- prompt "Section ID: "
+    joinDate <- prompt "Join date (YYYY-MM-DD): "
+
+    return SectionMember
+        { membershipId = membershipIdValue
+        , memberStudentId = read studentText
+        , memberSectionId = read sectionText
+        , memberJoinDate =
+            if null joinDate then Nothing else Just joinDate
+        }
+
+
+editSectionMember :: SectionMember -> IO SectionMember
+editSectionMember oldMember = do
+    putStrLn "Press Enter to keep the current value."
+
+    studentText <- prompt $
+        "Student ID [" ++ show (memberStudentId oldMember) ++ "]: "
+
+    sectionText <- prompt $
+        "Section ID [" ++ show (memberSectionId oldMember) ++ "]: "
+
+    joinDate <- prompt $
+        "Join date ["
+        ++ maybe "" id (memberJoinDate oldMember)
+        ++ "]: "
+
+    return SectionMember
+        { membershipId = membershipId oldMember
+        , memberStudentId =
+            if null studentText
+                then memberStudentId oldMember
+                else read studentText
+        , memberSectionId =
+            if null sectionText
+                then memberSectionId oldMember
+                else read sectionText
+        , memberJoinDate =
+            if null joinDate
+                then memberJoinDate oldMember
+                else Just joinDate
+        }
+
+
+competitionParticipantsMenu :: MySQLConn -> IO ()
+competitionParticipantsMenu conn = do
+    putStrLn ""
+    putStrLn "===== COMPETITION PARTICIPANTS ====="
+    putStrLn "1. Show participants"
+    putStrLn "2. Add participant"
+    putStrLn "3. Update participant"
+    putStrLn "4. Delete participant"
+    putStrLn "0. Back"
+
+    choice <- prompt "Choose option: "
+
+    case choice of
+        "1" -> do
+            participants <- getCompetitionParticipants conn
+            mapM_ (putStrLn . display) participants
+            competitionParticipantsMenu conn
+
+        "2" -> do
+            participant <- readCompetitionParticipant 0
+            addCompetitionParticipant conn participant
+            competitionParticipantsMenu conn
+
+        "3" -> do
+            idText <- prompt "Participant ID: "
+
+            maybeParticipant <-
+                getCompetitionParticipantById conn (read idText)
+
+            case maybeParticipant of
+                Nothing ->
+                    putStrLn "Participant not found."
+
+                Just oldParticipant -> do
+                    participant <-
+                        editCompetitionParticipant oldParticipant
+
+                    updateCompetitionParticipant conn participant
+
+            competitionParticipantsMenu conn
+
+        "4" -> do
+            idText <- prompt "Participant ID: "
+            deleteCompetitionParticipant conn (read idText)
+            competitionParticipantsMenu conn
+
+        "0" ->
+            menu conn
+
+        _ ->
+            competitionParticipantsMenu conn
+
+
+readCompetitionParticipant :: Int -> IO CompetitionParticipant
+readCompetitionParticipant participantIdValue = do
+    competitionText <- prompt "Competition ID: "
+    studentText <- prompt "Student ID: "
+    sectionText <- prompt "Section ID (empty if none): "
+    result <- prompt "Result (empty if none): "
+
+    return CompetitionParticipant
+        { participantId = participantIdValue
+        , participantCompetitionId = read competitionText
+        , participantStudentId = read studentText
+        , participantSectionId =
+            if null sectionText
+                then Nothing
+                else Just (read sectionText)
+        , participantResult =
+            if null result
+                then Nothing
+                else Just result
+        }
+
+
+editCompetitionParticipant
+    :: CompetitionParticipant
+    -> IO CompetitionParticipant
+
+editCompetitionParticipant oldParticipant = do
+    putStrLn "Press Enter to keep the current value."
+
+    competitionText <- prompt $
+        "Competition ID ["
+        ++ show (participantCompetitionId oldParticipant)
+        ++ "]: "
+
+    studentText <- prompt $
+        "Student ID ["
+        ++ show (participantStudentId oldParticipant)
+        ++ "]: "
+
+    sectionText <- prompt $
+        "Section ID ["
+        ++ maybe "-" show (participantSectionId oldParticipant)
+        ++ "]: "
+
+    result <- prompt $
+        "Result ["
+        ++ maybe "" id (participantResult oldParticipant)
+        ++ "]: "
+
+    return CompetitionParticipant
+        { participantId = participantId oldParticipant
+
+        , participantCompetitionId =
+            if null competitionText
+                then participantCompetitionId oldParticipant
+                else read competitionText
+
+        , participantStudentId =
+            if null studentText
+                then participantStudentId oldParticipant
+                else read studentText
+
+        , participantSectionId =
+            if null sectionText
+                then participantSectionId oldParticipant
+                else Just (read sectionText)
+
+        , participantResult =
+            if null result
+                then participantResult oldParticipant
+                else Just result
         }
