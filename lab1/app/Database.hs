@@ -3,6 +3,10 @@
 module Database
     ( createConnection
     , getStudents
+    , addStudent
+    , updateStudent
+    , getStudentById
+    , deleteStudent
     ) where
 
 import Database.MySQL.Base
@@ -24,13 +28,17 @@ createConnection = do
     password <- getEnv "DB_PASSWORD"
     database <- getEnv "DB_NAME"
 
-    connect defaultConnectInfo
+    conn <- connect defaultConnectInfoMB4
         { ciHost = host
         , ciPort = read port
         , ciUser = BS.pack user
         , ciPassword = BS.pack password
         , ciDatabase = BS.pack database
         }
+
+    _ <- execute_ conn "SET NAMES utf8mb4"
+
+    return conn
 
 getStudents :: MySQLConn -> IO [Student]
 getStudents conn = do
@@ -62,6 +70,18 @@ rowToStudent
 rowToStudent _ =
     error "Unexpected student row format"
 
+getStudentById :: MySQLConn -> Int -> IO (Maybe Student)
+getStudentById conn studentIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, first_name, last_name, group_name, course, phone FROM students WHERE id = ?"
+        [MySQLInt32 (fromIntegral studentIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToStudent row))
+        _     -> return Nothing
+
 convertNullableText :: MySQLValue -> Maybe String
 convertNullableText MySQLNull =
     Nothing
@@ -71,3 +91,40 @@ convertNullableText (MySQLText value) =
 
 convertNullableText _ =
     Nothing
+
+addStudent :: MySQLConn -> Student -> IO ()
+addStudent conn student = do
+    _ <- execute conn
+        "INSERT INTO students (first_name, last_name, group_name, course, phone) VALUES (?, ?, ?, ?, ?)"
+        [ MySQLText (T.pack (studentFirstName student))
+        , MySQLText (T.pack (studentLastName student))
+        , MySQLText (T.pack (studentGroup student))
+        , MySQLInt32 (fromIntegral (studentCourse student))
+        , maybe MySQLNull (MySQLText . T.pack) (studentPhone student)
+        ]
+
+    putStrLn "Student added successfully."
+
+
+updateStudent :: MySQLConn -> Student -> IO ()
+updateStudent conn student = do
+    _ <- execute conn
+        "UPDATE students SET first_name = ?, last_name = ?, group_name = ?, course = ?, phone = ? WHERE id = ?"
+        [ MySQLText (T.pack (studentFirstName student))
+        , MySQLText (T.pack (studentLastName student))
+        , MySQLText (T.pack (studentGroup student))
+        , MySQLInt32 (fromIntegral (studentCourse student))
+        , maybe MySQLNull (MySQLText . T.pack) (studentPhone student)
+        , MySQLInt32 (fromIntegral (studentId student))
+        ]
+
+    putStrLn "Student updated successfully."
+
+
+deleteStudent :: MySQLConn -> Int -> IO ()
+deleteStudent conn studentIdValue = do
+    _ <- execute conn
+        "DELETE FROM students WHERE id = ?"
+        [MySQLInt32 (fromIntegral studentIdValue)]
+
+    putStrLn "Student deleted successfully."

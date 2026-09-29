@@ -73,7 +73,9 @@ executable lab1
         text,
         io-streams,
         dotenv,
-        bytestring
+        bytestring,
+        code-page,
+        haskeline
 
     -- Directories containing source files.
     hs-source-dirs:   app

@@ -90,3 +90,10 @@ VALUES
 ('Андрій', 'Коваленко', 'К-21', 2, '+380931111111'),
 ('Олена', 'Шевченко', 'К-22', 2, '+380932222222'),
 ('Максим', 'Бондар', 'К-11', 1, '+380933333333');
+
+DELETE FROM faculty_sport.students
+WHERE id >= 4;
+
+ALTER TABLE faculty_sport.students AUTO_INCREMENT = 4;
+
+SELECT * FROM faculty_sport.students;
