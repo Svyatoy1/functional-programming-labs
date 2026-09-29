@@ -3,10 +3,15 @@
 module Database
     ( createConnection
     , getStudents
+    , getStudentById
     , addStudent
     , updateStudent
-    , getStudentById
     , deleteStudent
+    , getTeachers
+    , getTeacherById
+    , addTeacher
+    , updateTeacher
+    , deleteTeacher
     ) where
 
 import Database.MySQL.Base
@@ -17,6 +22,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.Text as T
 
 import Models
+
 
 createConnection :: IO MySQLConn
 createConnection = do
@@ -128,3 +134,80 @@ deleteStudent conn studentIdValue = do
         [MySQLInt32 (fromIntegral studentIdValue)]
 
     putStrLn "Student deleted successfully."
+
+getTeachers :: MySQLConn -> IO [Teacher]
+getTeachers conn = do
+    (_, stream) <- query_ conn
+        "SELECT id, first_name, last_name, department, phone FROM teachers"
+
+    rows <- Streams.toList stream
+    return (map rowToTeacher rows)
+
+
+getTeacherById :: MySQLConn -> Int -> IO (Maybe Teacher)
+getTeacherById conn teacherIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, first_name, last_name, department, phone FROM teachers WHERE id = ?"
+        [MySQLInt32 (fromIntegral teacherIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToTeacher row))
+        _     -> return Nothing
+
+
+rowToTeacher :: [MySQLValue] -> Teacher
+rowToTeacher
+    [ MySQLInt32 teacherIdValue
+    , MySQLText firstName
+    , MySQLText lastName
+    , MySQLText department
+    , phoneValue
+    ] =
+        Teacher
+            { teacherId = fromIntegral teacherIdValue
+            , teacherFirstName = T.unpack firstName
+            , teacherLastName = T.unpack lastName
+            , teacherDepartment = T.unpack department
+            , teacherPhone = convertNullableText phoneValue
+            }
+
+rowToTeacher _ =
+    error "Unexpected teacher row format"
+
+
+addTeacher :: MySQLConn -> Teacher -> IO ()
+addTeacher conn teacher = do
+    _ <- execute conn
+        "INSERT INTO teachers (first_name, last_name, department, phone) VALUES (?, ?, ?, ?)"
+        [ MySQLText (T.pack (teacherFirstName teacher))
+        , MySQLText (T.pack (teacherLastName teacher))
+        , MySQLText (T.pack (teacherDepartment teacher))
+        , maybe MySQLNull (MySQLText . T.pack) (teacherPhone teacher)
+        ]
+
+    putStrLn "Teacher added successfully."
+
+
+updateTeacher :: MySQLConn -> Teacher -> IO ()
+updateTeacher conn teacher = do
+    _ <- execute conn
+        "UPDATE teachers SET first_name = ?, last_name = ?, department = ?, phone = ? WHERE id = ?"
+        [ MySQLText (T.pack (teacherFirstName teacher))
+        , MySQLText (T.pack (teacherLastName teacher))
+        , MySQLText (T.pack (teacherDepartment teacher))
+        , maybe MySQLNull (MySQLText . T.pack) (teacherPhone teacher)
+        , MySQLInt32 (fromIntegral (teacherId teacher))
+        ]
+
+    putStrLn "Teacher updated successfully."
+
+
+deleteTeacher :: MySQLConn -> Int -> IO ()
+deleteTeacher conn teacherIdValue = do
+    _ <- execute conn
+        "DELETE FROM teachers WHERE id = ?"
+        [MySQLInt32 (fromIntegral teacherIdValue)]
+
+    putStrLn "Teacher deleted successfully."
