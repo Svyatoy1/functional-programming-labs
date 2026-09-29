@@ -12,6 +12,16 @@ module Database
     , addTeacher
     , updateTeacher
     , deleteTeacher
+    , getSportSections
+    , getSportSectionById
+    , addSportSection
+    , updateSportSection
+    , deleteSportSection
+    , getSchedules
+    , getScheduleById
+    , addSchedule
+    , updateSchedule
+    , deleteSchedule
     ) where
 
 import Database.MySQL.Base
@@ -211,3 +221,183 @@ deleteTeacher conn teacherIdValue = do
         [MySQLInt32 (fromIntegral teacherIdValue)]
 
     putStrLn "Teacher deleted successfully."
+
+
+getSportSections :: MySQLConn -> IO [SportSection]
+getSportSections conn = do
+    (_, stream) <- query_ conn
+        "SELECT id, name, sport_type, teacher_id, location FROM sport_sections"
+
+    rows <- Streams.toList stream
+    return (map rowToSportSection rows)
+
+
+getSportSectionById :: MySQLConn -> Int -> IO (Maybe SportSection)
+getSportSectionById conn sectionIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, name, sport_type, teacher_id, location FROM sport_sections WHERE id = ?"
+        [MySQLInt32 (fromIntegral sectionIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToSportSection row))
+        _     -> return Nothing
+
+
+rowToSportSection :: [MySQLValue] -> SportSection
+rowToSportSection
+    [ MySQLInt32 sectionIdValue
+    , MySQLText name
+    , MySQLText sport
+    , teacherValue
+    , locationValue
+    ] =
+        SportSection
+            { sectionId = fromIntegral sectionIdValue
+            , sectionName = T.unpack name
+            , sportType = T.unpack sport
+            , sectionTeacherId = convertNullableInt teacherValue
+            , sectionLocation =
+                maybe "" id (convertNullableText locationValue)
+            }
+
+rowToSportSection _ =
+    error "Unexpected sport section row format"
+
+
+convertNullableInt :: MySQLValue -> Maybe Int
+convertNullableInt MySQLNull =
+    Nothing
+
+convertNullableInt (MySQLInt32 value) =
+    Just (fromIntegral value)
+
+convertNullableInt _ =
+    Nothing
+
+
+addSportSection :: MySQLConn -> SportSection -> IO ()
+addSportSection conn section = do
+    _ <- execute conn
+        "INSERT INTO sport_sections (name, sport_type, teacher_id, location) VALUES (?, ?, ?, ?)"
+        [ MySQLText (T.pack (sectionName section))
+        , MySQLText (T.pack (sportType section))
+        , maybe MySQLNull
+            (MySQLInt32 . fromIntegral)
+            (sectionTeacherId section)
+        , MySQLText (T.pack (sectionLocation section))
+        ]
+
+    putStrLn "Sport section added successfully."
+
+
+updateSportSection :: MySQLConn -> SportSection -> IO ()
+updateSportSection conn section = do
+    _ <- execute conn
+        "UPDATE sport_sections SET name = ?, sport_type = ?, teacher_id = ?, location = ? WHERE id = ?"
+        [ MySQLText (T.pack (sectionName section))
+        , MySQLText (T.pack (sportType section))
+        , maybe MySQLNull
+            (MySQLInt32 . fromIntegral)
+            (sectionTeacherId section)
+        , MySQLText (T.pack (sectionLocation section))
+        , MySQLInt32 (fromIntegral (sectionId section))
+        ]
+
+    putStrLn "Sport section updated successfully."
+
+
+deleteSportSection :: MySQLConn -> Int -> IO ()
+deleteSportSection conn sectionIdValue = do
+    _ <- execute conn
+        "DELETE FROM sport_sections WHERE id = ?"
+        [MySQLInt32 (fromIntegral sectionIdValue)]
+
+    putStrLn "Sport section deleted successfully."
+
+
+getSchedules :: MySQLConn -> IO [SectionSchedule]
+getSchedules conn = do
+    (_, stream) <- query_ conn
+        "SELECT id, section_id, day_of_week, CAST(start_time AS CHAR), CAST(end_time AS CHAR), location FROM section_schedule"
+
+    rows <- Streams.toList stream
+    return (map rowToSchedule rows)
+
+
+getScheduleById :: MySQLConn -> Int -> IO (Maybe SectionSchedule)
+getScheduleById conn scheduleIdValue = do
+    (_, stream) <- query conn
+        "SELECT id, section_id, day_of_week, CAST(start_time AS CHAR), CAST(end_time AS CHAR), location FROM section_schedule WHERE id = ?"
+        [MySQLInt32 (fromIntegral scheduleIdValue)]
+
+    rows <- Streams.toList stream
+
+    case rows of
+        [row] -> return (Just (rowToSchedule row))
+        _     -> return Nothing
+
+
+rowToSchedule :: [MySQLValue] -> SectionSchedule
+rowToSchedule
+    [ MySQLInt32 scheduleIdValue
+    , MySQLInt32 sectionIdValue
+    , MySQLText dayOfWeek
+    , MySQLText startTime
+    , MySQLText endTime
+    , locationValue
+    ] =
+        SectionSchedule
+            { scheduleId = fromIntegral scheduleIdValue
+            , scheduleSectionId = fromIntegral sectionIdValue
+            , scheduleDayOfWeek = T.unpack dayOfWeek
+            , scheduleStartTime = T.unpack startTime
+            , scheduleEndTime = T.unpack endTime
+            , scheduleLocation = convertNullableText locationValue
+            }
+
+rowToSchedule _ =
+    error "Unexpected schedule row format"
+
+
+addSchedule :: MySQLConn -> SectionSchedule -> IO ()
+addSchedule conn schedule = do
+    _ <- execute conn
+        "INSERT INTO section_schedule (section_id, day_of_week, start_time, end_time, location) VALUES (?, ?, ?, ?, ?)"
+        [ MySQLInt32 (fromIntegral (scheduleSectionId schedule))
+        , MySQLText (T.pack (scheduleDayOfWeek schedule))
+        , MySQLText (T.pack (scheduleStartTime schedule))
+        , MySQLText (T.pack (scheduleEndTime schedule))
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (scheduleLocation schedule)
+        ]
+
+    putStrLn "Schedule added successfully."
+
+
+updateSchedule :: MySQLConn -> SectionSchedule -> IO ()
+updateSchedule conn schedule = do
+    _ <- execute conn
+        "UPDATE section_schedule SET section_id = ?, day_of_week = ?, start_time = ?, end_time = ?, location = ? WHERE id = ?"
+        [ MySQLInt32 (fromIntegral (scheduleSectionId schedule))
+        , MySQLText (T.pack (scheduleDayOfWeek schedule))
+        , MySQLText (T.pack (scheduleStartTime schedule))
+        , MySQLText (T.pack (scheduleEndTime schedule))
+        , maybe MySQLNull
+            (MySQLText . T.pack)
+            (scheduleLocation schedule)
+        , MySQLInt32 (fromIntegral (scheduleId schedule))
+        ]
+
+    putStrLn "Schedule updated successfully."
+
+
+deleteSchedule :: MySQLConn -> Int -> IO ()
+deleteSchedule conn scheduleIdValue = do
+    _ <- execute conn
+        "DELETE FROM section_schedule WHERE id = ?"
+        [MySQLInt32 (fromIntegral scheduleIdValue)]
+
+    putStrLn "Schedule deleted successfully."

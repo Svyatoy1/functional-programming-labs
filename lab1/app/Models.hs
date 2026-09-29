@@ -33,6 +33,15 @@ data Competition = Competition
     , competitionDescription :: Maybe String
     } deriving (Show)
 
+data SectionSchedule = SectionSchedule
+    { scheduleId :: Int
+    , scheduleSectionId :: Int
+    , scheduleDayOfWeek :: String
+    , scheduleStartTime :: String
+    , scheduleEndTime :: String
+    , scheduleLocation :: Maybe String
+    } deriving (Show)
+
 class Displayable a where
     display :: a -> String
 
@@ -77,3 +86,13 @@ instance Displayable Competition where
         ++ competitionDate c
         ++ ", location: "
         ++ competitionLocation c
+
+instance Displayable SectionSchedule where
+    display s =
+        "Schedule #" ++ show (scheduleId s)
+        ++ ": section #" ++ show (scheduleSectionId s)
+        ++ ", " ++ scheduleDayOfWeek s
+        ++ ", " ++ scheduleStartTime s
+        ++ " - " ++ scheduleEndTime s
+        ++ ", location: "
+        ++ maybe "-" id (scheduleLocation s)
