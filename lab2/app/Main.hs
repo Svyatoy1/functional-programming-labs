@@ -189,19 +189,34 @@ runBenchmark = do
     putStrLn "Input type: descending array"
     putStrLn ""
 
+    results <-
+        mapM
+            (benchmarkFor testArray)
+            threadCounts
+
+    let baseTime =
+            case results of
+                (_, time) : _ -> time
+                [] -> 1.0
+
+    putStrLn ""
+    putStrLn "Results:"
+
     mapM_
-        (benchmarkFor testArray)
-        threadCounts
+        (printBenchmarkResult baseTime)
+        results
 
 
-benchmarkFor :: [Int] -> Int -> IO ()
+benchmarkFor :: [Int] -> Int -> IO (Int, Double)
 benchmarkFor values k = do
     setNumCapabilities k
 
     startTime <- getMonotonicTimeNSec
 
     sorted <-
-        parallelBatcherSort k values
+        parallelBatcherSort
+            k
+            values
 
     _ <- evaluate (force sorted)
 
@@ -215,10 +230,10 @@ benchmarkFor values k = do
                 / 1000000000.0
                 :: Double
 
-    printf
-        "k = %-2d | time = %.6f seconds\n"
-        k
-        elapsedSeconds
+    return
+        ( k
+        , elapsedSeconds
+        )
 
 
 readBenchmarkSize :: IO Int
@@ -236,3 +251,19 @@ readBenchmarkSize = do
         _ -> do
             putStrLn "Size must be greater than 1."
             readBenchmarkSize
+
+
+printBenchmarkResult
+    :: Double
+    -> (Int, Double)
+    -> IO ()
+
+printBenchmarkResult baseTime (k, elapsedSeconds) = do
+    let speedup =
+            baseTime / elapsedSeconds
+
+    printf
+        "k = %-2d | time = %.6f seconds | speedup = %.2fx\n"
+        k
+        elapsedSeconds
+        speedup
