@@ -27,6 +27,14 @@ import Text.Read
     ( readMaybe
     )
 
+import Control.DeepSeq
+    ( force
+    )
+
+import Control.Exception
+    ( evaluate
+    )
+
 
 main :: IO ()
 main = do
@@ -60,16 +68,18 @@ main = do
 
     sorted <-
         if debugMode
-            then
-                parallelBatcherSortDebug
-                    threadCount
-                    values
-            else
-                parallelBatcherSort
-                    threadCount
-                    values
+            then parallelBatcherSortDebug threadCount values
+            else parallelBatcherSort threadCount values
+
+    _ <- evaluate (force sorted)
 
     endTime <- getMonotonicTimeNSec
+
+    runBenchmarkChoice <- readBenchmarkMode
+
+    if runBenchmarkChoice
+        then runBenchmark
+        else return ()
 
     let elapsedNanoseconds =
             endTime - startTime
@@ -140,3 +150,89 @@ readDebugMode = do
         _ -> do
             putStrLn "Enter y or n."
             readDebugMode
+
+
+readBenchmarkMode :: IO Bool
+readBenchmarkMode = do
+    putStr "Run performance benchmark? (y/n): "
+    hFlush stdout
+
+    input <- getLine
+
+    case input of
+        "y" -> return True
+        "Y" -> return True
+        "n" -> return False
+        "N" -> return False
+        _ -> do
+            putStrLn "Enter y or n."
+            readBenchmarkMode
+
+
+runBenchmark :: IO ()
+runBenchmark = do
+    putStrLn ""
+    putStrLn "===== PERFORMANCE BENCHMARK ====="
+
+    size <- readBenchmarkSize
+
+    let testArray =
+            reverse [1 .. size]
+
+        threadCounts =
+            [1, 2, 4, 8]
+
+    putStrLn $
+        "Array size: "
+            ++ show size
+
+    putStrLn "Input type: descending array"
+    putStrLn ""
+
+    mapM_
+        (benchmarkFor testArray)
+        threadCounts
+
+
+benchmarkFor :: [Int] -> Int -> IO ()
+benchmarkFor values k = do
+    setNumCapabilities k
+
+    startTime <- getMonotonicTimeNSec
+
+    sorted <-
+        parallelBatcherSort k values
+
+    _ <- evaluate (force sorted)
+
+    endTime <- getMonotonicTimeNSec
+
+    let elapsedNanoseconds =
+            endTime - startTime
+
+        elapsedSeconds =
+            fromIntegral elapsedNanoseconds
+                / 1000000000.0
+                :: Double
+
+    printf
+        "k = %-2d | time = %.6f seconds\n"
+        k
+        elapsedSeconds
+
+
+readBenchmarkSize :: IO Int
+readBenchmarkSize = do
+    putStr "Enter benchmark array size: "
+    hFlush stdout
+
+    input <- getLine
+
+    case readMaybe input of
+        Just size
+            | size > 1 ->
+                return size
+
+        _ -> do
+            putStrLn "Size must be greater than 1."
+            readBenchmarkSize

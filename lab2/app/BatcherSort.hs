@@ -23,6 +23,9 @@ import Control.Exception
     , try
     )
 
+    
+parallelThreshold :: Int
+parallelThreshold = 1024
 
 -- ============================================================
 -- PUBLIC FUNCTIONS
@@ -101,38 +104,42 @@ parallelOddEvenMergeSort _ _ _ [] =
 parallelOddEvenMergeSort _ _ _ [value] =
     return [value]
 
-parallelOddEvenMergeSort debug logLock workerSlots values = do
-    let middle = length values `div` 2
-        (left, right) = splitAt middle values
+parallelOddEvenMergeSort debug logLock workerSlots values
+    | length values <= parallelThreshold =
+        return (oddEvenMergeSort values)
 
-        description =
-            "sorting "
-                ++ show (length values)
-                ++ " elements"
+    | otherwise = do
+        let middle = length values `div` 2
+            (left, right) = splitAt middle values
 
-    (sortedLeft, sortedRight) <-
-        parallelPair
+            description =
+                "sorting "
+                    ++ show (length values)
+                    ++ " elements"
+
+        (sortedLeft, sortedRight) <-
+            parallelPair
+                debug
+                logLock
+                workerSlots
+                description
+                (parallelOddEvenMergeSort
+                    debug
+                    logLock
+                    workerSlots
+                    left)
+                (parallelOddEvenMergeSort
+                    debug
+                    logLock
+                    workerSlots
+                    right)
+
+        parallelOddEvenMerge
             debug
             logLock
             workerSlots
-            description
-            (parallelOddEvenMergeSort
-                debug
-                logLock
-                workerSlots
-                left)
-            (parallelOddEvenMergeSort
-                debug
-                logLock
-                workerSlots
-                right)
-
-    parallelOddEvenMerge
-        debug
-        logLock
-        workerSlots
-        sortedLeft
-        sortedRight
+            sortedLeft
+            sortedRight
 
 
 parallelOddEvenMerge
@@ -146,42 +153,46 @@ parallelOddEvenMerge
 parallelOddEvenMerge _ _ _ [x] [y] =
     return (compareExchange x y)
 
-parallelOddEvenMerge debug logLock workerSlots left right = do
-    let (leftEven, leftOdd) =
-            splitEvenOdd left
+parallelOddEvenMerge debug logLock workerSlots left right
+    | length left + length right <= parallelThreshold =
+        return (oddEvenMerge left right)
 
-        (rightEven, rightOdd) =
-            splitEvenOdd right
+    | otherwise = do
+        let (leftEven, leftOdd) =
+                splitEvenOdd left
 
-        description =
-            "merging "
-                ++ show (length left)
-                ++ " + "
-                ++ show (length right)
-                ++ " elements"
+            (rightEven, rightOdd) =
+                splitEvenOdd right
 
-    (mergedEven, mergedOdd) <-
-        parallelPair
-            debug
-            logLock
-            workerSlots
-            description
-            (parallelOddEvenMerge
+            description =
+                "merging "
+                    ++ show (length left)
+                    ++ " + "
+                    ++ show (length right)
+                    ++ " elements"
+
+        (mergedEven, mergedOdd) <-
+            parallelPair
                 debug
                 logLock
                 workerSlots
-                leftEven
-                rightEven)
-            (parallelOddEvenMerge
-                debug
-                logLock
-                workerSlots
-                leftOdd
-                rightOdd)
+                description
+                (parallelOddEvenMerge
+                    debug
+                    logLock
+                    workerSlots
+                    leftEven
+                    rightEven)
+                (parallelOddEvenMerge
+                    debug
+                    logLock
+                    workerSlots
+                    leftOdd
+                    rightOdd)
 
-    return $
-        compareOddPairs $
-            interleave mergedEven mergedOdd
+        return $
+            compareOddPairs $
+                interleave mergedEven mergedOdd
 
 
 parallelPair

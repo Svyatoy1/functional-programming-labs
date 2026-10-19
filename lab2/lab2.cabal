@@ -12,7 +12,8 @@ executable lab2
         BatcherSort
 
     build-depends:
-        base ^>=4.20.0.0
+        base ^>=4.20.0.0,
+        deepseq
 
     ghc-options:
         -Wall
