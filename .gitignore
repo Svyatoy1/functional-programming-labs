@@ -1,0 +1,25 @@
+# Haskell / Cabal
+dist/
+dist-newstyle/
+.stack-work/
+.cabal-sandbox/
+cabal.sandbox.config
+cabal.project.local
+
+# GHC generated files
+*.o
+*.hi
+*.dyn_o
+*.dyn_hi
+.ghc.environment.*
+
+# Environment variables / secrets
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
