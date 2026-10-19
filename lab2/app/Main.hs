@@ -1,28 +1,111 @@
 module Main (main) where
 
-import BatcherSort (batcherSort)
+import BatcherSort
+    ( parallelBatcherSort
+    )
 
+import GHC.Conc
+    ( getNumCapabilities
+    , setNumCapabilities
+    )
+
+import GHC.Clock
+    ( getMonotonicTimeNSec
+    )
+
+import Text.Printf
+    ( printf
+    )
+
+import Text.Read
+    ( readMaybe
+    )
+
+import System.IO (hFlush, stdout)
 
 main :: IO ()
 main = do
     putStrLn "===== BATCHER ODD-EVEN MERGE SORT ====="
     putStrLn ""
-    putStrLn "Enter array elements separated by spaces:"
+
+    values <- readArray
+    threadCount <- readThreadCount
+
+    -- Configure GHC runtime to use k capabilities.
+    setNumCapabilities threadCount
+
+    capabilities <- getNumCapabilities
+
+    putStrLn ""
+    putStrLn "Original array:"
+    print values
+
+    putStrLn ""
+    putStrLn $
+        "Number of threads: "
+            ++ show threadCount
+
+    putStrLn $
+        "GHC capabilities: "
+            ++ show capabilities
+
+    startTime <- getMonotonicTimeNSec
+
+    sorted <-
+        parallelBatcherSort
+            threadCount
+            values
+
+    endTime <- getMonotonicTimeNSec
+
+    let elapsedNanoseconds =
+            endTime - startTime
+
+        elapsedSeconds =
+            fromIntegral elapsedNanoseconds
+                / 1000000000.0
+                :: Double
+
+    putStrLn ""
+    putStrLn "Sorted array:"
+    print sorted
+
+    putStrLn ""
+
+    printf
+        "Execution time: %.6f seconds\n"
+        elapsedSeconds
+
+
+readArray :: IO [Int]
+readArray = do
+    putStr "Enter array elements in ONE line separated by spaces: "
+    hFlush stdout
 
     input <- getLine
 
-    let values = map read (words input) :: [Int]
+    case traverse readMaybe (words input) of
+        Just values
+            | not (null values) ->
+                return values
 
-    if null values
-        then
-            putStrLn "Array is empty."
-        else do
-            putStrLn ""
-            putStrLn "Original array:"
-            print values
+        _ -> do
+            putStrLn "Invalid array. Try again."
+            readArray
 
-            let sorted = batcherSort values
 
-            putStrLn ""
-            putStrLn "Sorted array:"
-            print sorted
+readThreadCount :: IO Int
+readThreadCount = do
+    putStr "Enter number of threads (k): "
+    hFlush stdout
+
+    input <- getLine
+
+    case readMaybe input of
+        Just k
+            | k > 0 ->
+                return k
+
+        _ -> do
+            putStrLn "Number of threads must be greater than 0."
+            readThreadCount
