@@ -1,9 +1,12 @@
 module BatcherSort
     ( batcherSort
     , parallelBatcherSort
+    , parallelBatcherSortDebug
     ) where
-
-import Control.Concurrent (forkIO)
+import Control.Concurrent
+    ( forkIO
+    , myThreadId
+    )
 import Control.Concurrent.MVar
     ( MVar
     , modifyMVar
@@ -12,6 +15,7 @@ import Control.Concurrent.MVar
     , newMVar
     , putMVar
     , takeMVar
+    , withMVar
     )
 import Control.Exception
     ( SomeException
@@ -45,13 +49,25 @@ batcherSort values =
 -- Parallel version.
 -- k = maximum number of simultaneously used threads.
 parallelBatcherSort :: Int -> [Int] -> IO [Int]
-parallelBatcherSort _ [] =
+parallelBatcherSort =
+    parallelBatcherSortInternal False
+
+
+parallelBatcherSortDebug :: Int -> [Int] -> IO [Int]
+parallelBatcherSortDebug =
+    parallelBatcherSortInternal True
+
+
+parallelBatcherSortInternal :: Bool -> Int -> [Int] -> IO [Int]
+parallelBatcherSortInternal _ _ [] =
     return []
 
-parallelBatcherSort k values = do
-    -- Main thread counts as one thread,
-    -- so only k - 1 additional workers may be created.
+parallelBatcherSortInternal debug k values = do
     workerSlots <- newMVar (max 0 (k - 1))
+
+    -- Prevent debug messages from different threads
+    -- from being mixed together.
+    logLock <- newMVar ()
 
     let originalSize = length values
         targetSize = nextPowerOfTwo originalSize
@@ -64,67 +80,101 @@ parallelBatcherSort k values = do
 
     sorted <-
         parallelOddEvenMergeSort
+            debug
+            logLock
             workerSlots
             padded
 
     return (take originalSize sorted)
 
 
--- ============================================================
--- PARALLEL BATCHER SORT
--- ============================================================
-
 parallelOddEvenMergeSort
-    :: MVar Int
+    :: Bool
+    -> MVar ()
+    -> MVar Int
     -> [Int]
     -> IO [Int]
 
-parallelOddEvenMergeSort _ [] =
+parallelOddEvenMergeSort _ _ _ [] =
     return []
 
-parallelOddEvenMergeSort _ [value] =
+parallelOddEvenMergeSort _ _ _ [value] =
     return [value]
 
-parallelOddEvenMergeSort workerSlots values = do
+parallelOddEvenMergeSort debug logLock workerSlots values = do
     let middle = length values `div` 2
         (left, right) = splitAt middle values
 
+        description =
+            "sorting "
+                ++ show (length values)
+                ++ " elements"
+
     (sortedLeft, sortedRight) <-
         parallelPair
+            debug
+            logLock
             workerSlots
-            (parallelOddEvenMergeSort workerSlots left)
-            (parallelOddEvenMergeSort workerSlots right)
+            description
+            (parallelOddEvenMergeSort
+                debug
+                logLock
+                workerSlots
+                left)
+            (parallelOddEvenMergeSort
+                debug
+                logLock
+                workerSlots
+                right)
 
     parallelOddEvenMerge
+        debug
+        logLock
         workerSlots
         sortedLeft
         sortedRight
 
 
 parallelOddEvenMerge
-    :: MVar Int
+    :: Bool
+    -> MVar ()
+    -> MVar Int
     -> [Int]
     -> [Int]
     -> IO [Int]
 
-parallelOddEvenMerge _ [x] [y] =
+parallelOddEvenMerge _ _ _ [x] [y] =
     return (compareExchange x y)
 
-parallelOddEvenMerge workerSlots left right = do
+parallelOddEvenMerge debug logLock workerSlots left right = do
     let (leftEven, leftOdd) =
             splitEvenOdd left
 
         (rightEven, rightOdd) =
             splitEvenOdd right
 
+        description =
+            "merging "
+                ++ show (length left)
+                ++ " + "
+                ++ show (length right)
+                ++ " elements"
+
     (mergedEven, mergedOdd) <-
         parallelPair
+            debug
+            logLock
             workerSlots
+            description
             (parallelOddEvenMerge
+                debug
+                logLock
                 workerSlots
                 leftEven
                 rightEven)
             (parallelOddEvenMerge
+                debug
+                logLock
                 workerSlots
                 leftOdd
                 rightOdd)
@@ -134,20 +184,23 @@ parallelOddEvenMerge workerSlots left right = do
             interleave mergedEven mergedOdd
 
 
--- ============================================================
--- THREAD CONTROL
--- ============================================================
-
--- Execute two independent computations.
--- If a worker slot is available, the first computation
--- runs in a separate thread.
 parallelPair
-    :: MVar Int
+    :: Bool
+    -> MVar ()
+    -> MVar Int
+    -> String
     -> IO [Int]
     -> IO [Int]
     -> IO ([Int], [Int])
 
-parallelPair workerSlots firstAction secondAction = do
+parallelPair
+    debug
+    logLock
+    workerSlots
+    description
+    firstAction
+    secondAction = do
+
     canCreateThread <- reserveWorker workerSlots
 
     if canCreateThread
@@ -157,10 +210,19 @@ parallelPair workerSlots firstAction secondAction = do
                     :: IO (MVar (Either SomeException [Int]))
 
             _ <- forkIO $ do
+                logThread
+                    debug
+                    logLock
+                    ("START: " ++ description)
+
                 result <- try firstAction
 
-                putMVar resultVar result
+                logThread
+                    debug
+                    logLock
+                    ("END:   " ++ description)
 
+                putMVar resultVar result
                 releaseWorker workerSlots
 
             secondResult <- secondAction
@@ -184,6 +246,21 @@ parallelPair workerSlots firstAction secondAction = do
                 ( firstResult
                 , secondResult
                 )
+
+
+logThread :: Bool -> MVar () -> String -> IO ()
+logThread False _ _ =
+    return ()
+
+logThread True logLock message =
+    withMVar logLock $ \_ -> do
+        threadId <- myThreadId
+
+        putStrLn $
+            "["
+                ++ show threadId
+                ++ "] "
+                ++ message
 
 
 -- Try to reserve one additional worker.

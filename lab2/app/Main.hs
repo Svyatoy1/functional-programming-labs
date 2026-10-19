@@ -2,6 +2,11 @@ module Main (main) where
 
 import BatcherSort
     ( parallelBatcherSort
+    , parallelBatcherSortDebug
+    )
+
+import GHC.Clock
+    ( getMonotonicTimeNSec
     )
 
 import GHC.Conc
@@ -9,8 +14,9 @@ import GHC.Conc
     , setNumCapabilities
     )
 
-import GHC.Clock
-    ( getMonotonicTimeNSec
+import System.IO
+    ( hFlush
+    , stdout
     )
 
 import Text.Printf
@@ -21,7 +27,6 @@ import Text.Read
     ( readMaybe
     )
 
-import System.IO (hFlush, stdout)
 
 main :: IO ()
 main = do
@@ -30,8 +35,8 @@ main = do
 
     values <- readArray
     threadCount <- readThreadCount
+    debugMode <- readDebugMode
 
-    -- Configure GHC runtime to use k capabilities.
     setNumCapabilities threadCount
 
     capabilities <- getNumCapabilities
@@ -49,12 +54,20 @@ main = do
         "GHC capabilities: "
             ++ show capabilities
 
+    putStrLn ""
+
     startTime <- getMonotonicTimeNSec
 
     sorted <-
-        parallelBatcherSort
-            threadCount
-            values
+        if debugMode
+            then
+                parallelBatcherSortDebug
+                    threadCount
+                    values
+            else
+                parallelBatcherSort
+                    threadCount
+                    values
 
     endTime <- getMonotonicTimeNSec
 
@@ -109,3 +122,21 @@ readThreadCount = do
         _ -> do
             putStrLn "Number of threads must be greater than 0."
             readThreadCount
+
+
+readDebugMode :: IO Bool
+readDebugMode = do
+    putStr "Show thread activity? (y/n): "
+    hFlush stdout
+
+    input <- getLine
+
+    case input of
+        "y" -> return True
+        "Y" -> return True
+        "n" -> return False
+        "N" -> return False
+
+        _ -> do
+            putStrLn "Enter y or n."
+            readDebugMode
