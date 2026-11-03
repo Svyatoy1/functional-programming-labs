@@ -1,0 +1,4 @@
+Array     is a collection of elements.
+An algorithm processes    input and produces output.
+    Each element can be accessed using an index.
+Object-oriented programming is another programming paradigm.
