@@ -1,7 +1,14 @@
-What     is an algorithm?
-An algorithm is a sequence of instructions; it solves a problem.
+Programming    languages are used to describe algorithms and create software applications.
+An algorithm is a finite sequence of instructions designed to solve a specific problem.
 
-Input/output operations are important!
-A function (or procedure) can accept arguments, process data, and return a value.
+In many programs, an array stores elements in a fixed order and allows efficient access by index.
+Each element can contain a value, and its position determines how the program accesses it.
 
-Object-oriented programming uses objects: each object contains data and operations.
+Object-oriented programming organizes software around objects that combine data and operations.
+An object can contain attributes and methods,	while inheritance allows one type to reuse behavior from another.
+
+Input/output operations allow a program to communicate with users, files, or external devices.
+A function receives arguments, performs an operation, and returns a result.
+
+Error handling is important because unexpected input or invalid operations can interrupt program execution.
+Understanding algorithms, data structures, and abstraction helps programmers design reliable software.
