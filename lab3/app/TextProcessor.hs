@@ -98,6 +98,9 @@ noSpaceBefore token =
         PunctuationToken ParenthesisClose ->
             True
 
+        PunctuationToken Slash ->
+            True
+
         _ ->
             False
 
@@ -108,9 +111,11 @@ noSpaceAfter token =
         PunctuationToken ParenthesisOpen ->
             True
 
+        PunctuationToken Slash ->
+            True
+
         _ ->
             False
-
 
 tokenToString :: Token -> String
 tokenToString token =
@@ -145,6 +150,9 @@ punctuationToString punctuation =
 
         Dash ->
             "-"
+
+        Slash ->
+            "/"
 
         Quote ->
             "\""
@@ -201,6 +209,7 @@ toPunctuation character =
         '?' -> QuestionMark
         '!' -> ExclamationMark
         '-' -> Dash
+        '/' -> Slash
         '"' -> Quote
         '(' -> ParenthesisOpen
         ')' -> ParenthesisClose

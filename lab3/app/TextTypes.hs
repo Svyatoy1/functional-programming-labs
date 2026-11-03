@@ -28,6 +28,7 @@ data PunctuationMark
     | QuestionMark
     | ExclamationMark
     | Dash
+    | Slash
     | Quote
     | ParenthesisOpen
     | ParenthesisClose
