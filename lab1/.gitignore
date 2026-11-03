@@ -1,0 +1,25 @@
+# Cabal / Haskell build files
+dist/
+dist-newstyle/
+.cabal-sandbox/
+cabal.sandbox.config
+
+# GHC files
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+
+# Stack, якщо раптом з'явиться
+.stack-work/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
