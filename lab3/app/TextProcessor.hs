@@ -1,6 +1,7 @@
 module TextProcessor
     ( normalizeWhitespace
     , parseText
+    , renderText
     , extractWords
     , startsWithVowel
     , sortVowelWords
@@ -24,6 +25,7 @@ import TextTypes
     , TextWord(..)
     , Token(..)
     , stringToWord
+    , wordToString
     )
 
 
@@ -35,6 +37,126 @@ normalizeWhitespace =
 parseText :: String -> Text
 parseText =
     Text . splitSentences . tokenize
+
+
+renderText :: Text -> String
+renderText (Text sentences) =
+    unwords (map renderSentence sentences)
+
+
+renderSentence :: Sentence -> String
+renderSentence (Sentence tokens) =
+    renderTokens tokens
+
+
+renderTokens :: [Token] -> String
+renderTokens [] =
+    ""
+
+renderTokens [token] =
+    tokenToString token
+
+renderTokens (token : nextToken : rest) =
+    tokenToString token
+        ++ tokenSeparator token nextToken
+        ++ renderTokens (nextToken : rest)
+
+
+tokenSeparator :: Token -> Token -> String
+tokenSeparator currentToken nextToken
+    | noSpaceBefore nextToken =
+        ""
+
+    | noSpaceAfter currentToken =
+        ""
+
+    | otherwise =
+        " "
+
+
+noSpaceBefore :: Token -> Bool
+noSpaceBefore token =
+    case token of
+        PunctuationToken Period ->
+            True
+
+        PunctuationToken Comma ->
+            True
+
+        PunctuationToken Colon ->
+            True
+
+        PunctuationToken Semicolon ->
+            True
+
+        PunctuationToken QuestionMark ->
+            True
+
+        PunctuationToken ExclamationMark ->
+            True
+
+        PunctuationToken ParenthesisClose ->
+            True
+
+        _ ->
+            False
+
+
+noSpaceAfter :: Token -> Bool
+noSpaceAfter token =
+    case token of
+        PunctuationToken ParenthesisOpen ->
+            True
+
+        _ ->
+            False
+
+
+tokenToString :: Token -> String
+tokenToString token =
+    case token of
+        WordToken word ->
+            wordToString word
+
+        PunctuationToken punctuation ->
+            punctuationToString punctuation
+
+
+punctuationToString :: PunctuationMark -> String
+punctuationToString punctuation =
+    case punctuation of
+        Period ->
+            "."
+
+        Comma ->
+            ","
+
+        Colon ->
+            ":"
+
+        Semicolon ->
+            ";"
+
+        QuestionMark ->
+            "?"
+
+        ExclamationMark ->
+            "!"
+
+        Dash ->
+            "-"
+
+        Quote ->
+            "\""
+
+        ParenthesisOpen ->
+            "("
+
+        ParenthesisClose ->
+            ")"
+
+        OtherPunctuation character ->
+            [character]
 
 
 tokenize :: String -> [Token]

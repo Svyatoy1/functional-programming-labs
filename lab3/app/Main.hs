@@ -13,6 +13,7 @@ import TextProcessor
     ( extractWords
     , normalizeWhitespace
     , parseText
+    , renderText
     , sortVowelWords
     )
 
@@ -38,6 +39,9 @@ main = do
         parsedText =
             parseText normalizedText
 
+        restoredText =
+            renderText parsedText
+
         allWords =
             extractWords parsedText
 
@@ -49,6 +53,10 @@ main = do
 
     putStrLn "Normalized text:"
     putStrLn normalizedText
+
+    putStrLn ""
+    putStrLn "Text formed from custom data types:"
+    putStrLn restoredText
 
     putStrLn ""
     putStrLn $

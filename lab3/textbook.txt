@@ -1,4 +1,12 @@
-Array     is a collection of elements.
-An algorithm processes    input and produces output.
-    Each element can be accessed using an index.
-Object-oriented programming is another programming paradigm.
+Programming    languages are used to create software applications.
+An algorithm is	a finite sequence of instructions designed to solve a problem.
+
+In programming,   an array is a collection of elements stored in a specific order.
+Each element can be accessed using an index, and its value can usually be changed.
+
+Object-oriented programming organizes software around objects.
+An object contains data and methods that operate on that data.
+Inheritance, encapsulation, and abstraction are important concepts in object-oriented programming.
+
+Input and output operations allow a program to communicate with the user.
+A program receives input, processes it, and produces output.
