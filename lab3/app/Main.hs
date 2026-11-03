@@ -12,11 +12,14 @@ import System.IO
 import TextProcessor
     ( extractWords
     , normalizeWhitespace
+    , parseText
     , sortVowelWords
     )
 
 import TextTypes
-    ( TextWord(..)
+    ( Text(..)
+    , TextWord
+    , wordToString
     )
 
 
@@ -32,8 +35,11 @@ main = do
     let normalizedText =
             normalizeWhitespace originalText
 
+        parsedText =
+            parseText normalizedText
+
         allWords =
-            extractWords normalizedText
+            extractWords parsedText
 
         vowelWords =
             sortVowelWords allWords
@@ -45,13 +51,20 @@ main = do
     putStrLn normalizedText
 
     putStrLn ""
+    putStrLn $
+        "Number of sentences: "
+            ++ show (sentenceCount parsedText)
+
+    putStrLn ""
     putStrLn "Words beginning with vowels:"
     printWords vowelWords
 
 
+sentenceCount :: Text -> Int
+sentenceCount (Text sentences) =
+    length sentences
+
+
 printWords :: [TextWord] -> IO ()
 printWords =
-    mapM_ printWord
-  where
-    printWord (TextWord word) =
-        putStrLn word
+    mapM_ (putStrLn . wordToString)

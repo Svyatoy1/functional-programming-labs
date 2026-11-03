@@ -1,5 +1,6 @@
 module TextProcessor
     ( normalizeWhitespace
+    , parseText
     , extractWords
     , startsWithVowel
     , sortVowelWords
@@ -7,6 +8,7 @@ module TextProcessor
 
 import Data.Char
     ( isAlpha
+    , isSpace
     , toLower
     )
 
@@ -15,7 +17,13 @@ import Data.List
     )
 
 import TextTypes
-    ( TextWord(..)
+    ( PunctuationMark(..)
+    , Sentence(..)
+    , Symbol(..)
+    , Text(..)
+    , TextWord(..)
+    , Token(..)
+    , stringToWord
     )
 
 
@@ -24,25 +32,114 @@ normalizeWhitespace =
     unwords . words
 
 
-extractWords :: String -> [TextWord]
-extractWords text =
-    map TextWord $
-        words $
-            map replaceNonLetter text
+parseText :: String -> Text
+parseText =
+    Text . splitSentences . tokenize
+
+
+tokenize :: String -> [Token]
+tokenize [] =
+    []
+
+tokenize (character : rest)
+    | isAlpha character =
+        let
+            (wordRest, remainingText) =
+                span isWordCharacter rest
+
+            word =
+                character : wordRest
+        in
+            WordToken (stringToWord word)
+                : tokenize remainingText
+
+    | isSpace character =
+        tokenize rest
+
+    | otherwise =
+        PunctuationToken (toPunctuation character)
+            : tokenize rest
+
+
+isWordCharacter :: Char -> Bool
+isWordCharacter character =
+    isAlpha character
+        || character == '\''
+        || character == '’'
+        || character == '-'
+
+
+toPunctuation :: Char -> PunctuationMark
+toPunctuation character =
+    case character of
+        '.' -> Period
+        ',' -> Comma
+        ':' -> Colon
+        ';' -> Semicolon
+        '?' -> QuestionMark
+        '!' -> ExclamationMark
+        '-' -> Dash
+        '"' -> Quote
+        '(' -> ParenthesisOpen
+        ')' -> ParenthesisClose
+        _   -> OtherPunctuation character
+
+
+splitSentences :: [Token] -> [Sentence]
+splitSentences =
+    go []
   where
-    replaceNonLetter character
-        | isAlpha character = character
-        | character == '\'' = character
-        | character == '’' = character
-        | character == '-' = character
-        | otherwise = ' '
+    go currentTokens []
+        | null currentTokens =
+            []
+
+        | otherwise =
+            [Sentence (reverse currentTokens)]
+
+    go currentTokens (token : rest) =
+        let
+            updatedTokens =
+                token : currentTokens
+        in
+            if isSentenceEnd token
+                then
+                    Sentence (reverse updatedTokens)
+                        : go [] rest
+                else
+                    go updatedTokens rest
+
+
+isSentenceEnd :: Token -> Bool
+isSentenceEnd token =
+    case token of
+        PunctuationToken Period ->
+            True
+
+        PunctuationToken QuestionMark ->
+            True
+
+        PunctuationToken ExclamationMark ->
+            True
+
+        _ ->
+            False
+
+
+extractWords :: Text -> [TextWord]
+extractWords (Text sentences) =
+    concatMap wordsFromSentence sentences
+  where
+    wordsFromSentence (Sentence tokens) =
+        [ word
+        | WordToken word <- tokens
+        ]
 
 
 startsWithVowel :: TextWord -> Bool
 startsWithVowel (TextWord []) =
     False
 
-startsWithVowel (TextWord (firstCharacter : _)) =
+startsWithVowel (TextWord (Symbol firstCharacter : _)) =
     toLower firstCharacter `elem` vowels
   where
     vowels =
@@ -55,8 +152,8 @@ sortVowelWords =
         . filter startsWithVowel
   where
     compareFirstLetter
-        (TextWord (firstCharacter : _))
-        (TextWord (secondCharacter : _)) =
+        (TextWord (Symbol firstCharacter : _))
+        (TextWord (Symbol secondCharacter : _)) =
             compare
                 (toLower firstCharacter)
                 (toLower secondCharacter)

@@ -5,6 +5,8 @@ module TextTypes
     , Token(..)
     , Sentence(..)
     , Text(..)
+    , stringToWord
+    , wordToString
     ) where
 
 
@@ -14,7 +16,7 @@ newtype Symbol =
 
 
 newtype TextWord =
-    TextWord String
+    TextWord [Symbol]
     deriving (Eq, Show)
 
 
@@ -47,3 +49,16 @@ newtype Sentence =
 newtype Text =
     Text [Sentence]
     deriving (Eq, Show)
+
+
+stringToWord :: String -> TextWord
+stringToWord =
+    TextWord . map Symbol
+
+
+wordToString :: TextWord -> String
+wordToString (TextWord symbols) =
+    map symbolToChar symbols
+  where
+    symbolToChar (Symbol character) =
+        character
